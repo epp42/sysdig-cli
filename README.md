@@ -115,112 +115,31 @@ sysdig audit recent-commands --from 7d               # curated
 
 ## Performance
 
-> Benchmarked on Claude Sonnet 4.6 · $3/1M input tokens · 3 iterations · `prodmon.app.sysdig.com`
-> Reproduce: `python3 prompts/benchmark_api_vs_cli.py`
+> **The rule:** Use CLI when you want an answer. Use the API when you want to reason about data.
 
-### Token efficiency
+Measured on Claude Sonnet 4.6 · $3/1M input tokens · `prodmon.app.sysdig.com` · [`benchmark_api_vs_cli.py`](prompts/benchmark_api_vs_cli.py)
 
-When Claude uses `sysdig <cmd>` via Bash, **every byte of stdout becomes input tokens** — directly consuming context window and driving cost. The right approach depends on what you're doing.
-
-#### Core benchmark: 4 approaches, same data
-
-| Scenario | API raw | CLI table | CLI json | **API filtered** | Savings |
-|----------|:-------:|:---------:|:--------:|:----------------:|:-------:|
-| `vulns list` (25 workloads) | 3,176 tk | 550 tk | 3,155 tk | **211 tk** | **93% · 15×** |
-| `events list` (50 events) | 8,128 tk | 1,225 tk | 8,134 tk | **991 tk** | **88% · 8×** |
-| `audit commands` (25 entries) | 2,315 tk | 698 tk | 2,315 tk | **522 tk** | **77% · 4×** |
-
-> API raw ≈ CLI json — they carry identical payloads. CLI table is compact for human display (fixed-width columns, no JSON key overhead) but isn't machine-parseable. **API filtered** = `SysdigClient` + compact tuple output — the most token-efficient approach for AI agents reasoning about data.
-
-#### Latency: subprocess overhead is real
-
-Each CLI call spawns a subprocess. Measured overhead vs direct API call:
-
-| | API direct | CLI subprocess | Overhead |
-|---|:---:|:---:|:---:|
-| Latency mean | 221 ms | 2,309 ms | **+2,088 ms (10.4×)** |
-| Latency p95 | 196 ms | 2,338 ms | — |
-
-**Rule of thumb:** one CLI call costs ~2 seconds of Python startup time. For a loop of 10 calls, that's **20 extra seconds**. Use the API directly for any repeated operation.
-
-#### Pagination scale: CLI ndjson vs API filtered
-
-`sysdig events list --all` handles cursor pagination automatically (1 command). Writing the loop manually is ~15 lines. But token costs differ:
-
-| Total events | CLI `--all --format ndjson` | API filtered (all pages) | CLI vs filtered |
-|:---:|:---:|:---:|:---:|
-| 100 | 16,225 tk | 1,607 tk | +910% |
-| 300 | 48,670 tk | 4,818 tk | +910% |
-| 1,000 | 162,226 tk | 16,057 tk | +910% |
-
-> CLI `--all` is great for **export to file / SIEM / jq** — one command, streaming, bounded memory. For **AI reasoning**, write the pagination loop and select only the fields you need.
-
-#### Filtering: CLI pre-filters eliminate API overhead
-
-CLI flags do pre-filtering before any output is produced. API calls return everything and filter client-side.
-
-| Scenario | Before filter | After filter | CLI table | API raw | API filtered | Code |
-|----------|:---:|:---:|:---:|:---:|:---:|:---:|
-| `events --rule drift --severity 6 --namespace prod` | 200 | matched only | 120 tk | 32,503 tk | 46 tk | CLI: 1L · API: 12L |
-| `vulns list --severity critical` | 100 | 93 | 1,927 tk | 12,576 tk | 703 tk | CLI: 1L · API: 10L |
-
-> **Surprise**: CLI with tight pre-filters (rule + severity + namespace) returns fewer tokens than unfiltered API raw — and requires zero boilerplate code. API filtered is still more token-efficient when you also select specific fields, but the gap is small and CLI wins on ergonomics.
-
-#### Cost at scale — `vulns list` (25 workloads)
-
-| Sessions | API raw / CLI json | **API filtered** | Saved |
-|----------|:-----------------:|:----------------:|:-----:|
-| 100 | $0.95 | $0.06 | $0.89 |
-| 1,000 | $9.53 | $0.63 | **$8.90** |
-| 10,000 | $95.28 | $6.33 | **$88.95** |
-| 100,000 | $952.80 | $63.30 | **$889.50** |
-
----
-
-## CLI vs API — When to Use Which
-
-The `sysdig` CLI and `SysdigClient` Python API access the same data. The right choice depends on the task.
-
-### Decision guide (backed by benchmark data above)
+### CLI vs API — when each wins
 
 | Scenario | Use | Why |
 |----------|-----|-----|
-| **One-shot spot check** — is anything critical firing? | **CLI** | No boilerplate, readable output, works interactively |
-| **Complex multi-condition filter** — rule + severity + namespace | **CLI** | Pre-filters eliminate API payload; 1 command vs 12 lines |
-| **Paginate full history for export** — last 7d to SIEM | **CLI `--all --format ndjson`** | Auto-handles cursor loop, streaming, bounded memory |
-| **Pipe to jq / grep / file** | **CLI `--format ndjson`** | UNIX-native streaming format |
-| **Answer a specific question in Claude Code** | **API filtered** | 10–15× fewer input tokens vs CLI json |
-| **Loop over 10+ calls** — automation, dashboards | **API direct** | Skip 2,088ms subprocess overhead per call |
-| **Large dataset reasoning** — 300+ items | **API filtered** | 10× fewer tokens than CLI ndjson |
-| **Explore what endpoints exist** | **CLI `sysdig schema list`** | Zero code, full OpenAPI coverage |
+| Spot-check: anything critical right now? | **CLI** | One command, readable, zero setup |
+| Multi-condition filter: rule + severity + namespace | **CLI** | Built-in pre-filters — 120 tk vs 32,503 tk API raw |
+| Export full history to SIEM / file | **CLI `--all --format ndjson`** | Auto-paginates cursor loop, streaming |
+| Pipe to `jq` / `grep` / shell script | **CLI `--format ndjson`** | UNIX-native format |
+| Agent reasoning over results | **API filtered** | 10–15× fewer tokens — 3,155 tk → 211 tk |
+| Automation loop (10+ calls) | **API direct** | CLI subprocess adds +2,088 ms per call |
+| Large dataset analysis (300+ items) | **API filtered** | CLI ndjson is 10× larger than field-selected tuples |
 
-### Code patterns
+### Token cost snapshot (25 workloads / 50 events)
 
-```python
-# ❌ Expensive — 3,155 tokens for 25 workloads
-output = subprocess.run(["sysdig", "vulns", "list", "--format", "json"], ...)
+| | CLI json | CLI table | **API filtered** | Savings |
+|--|:---:|:---:|:---:|:---:|
+| `vulns list` | 3,155 tk | 550 tk | **211 tk** | 93% · 15× |
+| `events list` | 8,134 tk | 1,225 tk | **991 tk** | 88% · 8× |
+| `audit commands` | 2,315 tk | 698 tk | **522 tk** | 77% · 4× |
 
-# ✅ Efficient — 211 tokens for the same data (15× cheaper)
-from sysdig_cli.auth import resolve_auth
-from sysdig_cli.client import SysdigClient
-
-with SysdigClient(auth=resolve_auth()) as client:
-    data = client.get("/secure/vulnerability/v1/runtime-results", params={"limit": 25})
-    critical = [
-        [r["mainAssetName"].split("/")[-1], r["criticalVulnCount"], r["highVulnCount"]]
-        for r in data.get("data", [])
-        if r.get("criticalVulnCount", 0) > 0
-    ]
-    # → ~85 tokens — 37× more efficient
-```
-
-```bash
-# ✅ CLI wins for export — one command, auto-pagination, streaming
-sysdig events list --from 7d --all --format ndjson | gzip > events-$(date +%Y%m%d).ndjson.gz
-
-# ✅ CLI wins for filtered spot-checks — pre-filters, no code
-sysdig events list --rule "Drift" --severity 6 --namespace production --from 24h
-```
+CLI table is compact for human display but not machine-parseable. API filtered = `SysdigClient` + field-selected tuples.
 
 ---
 
