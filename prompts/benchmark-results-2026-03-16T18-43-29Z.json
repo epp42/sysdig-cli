@@ -1,0 +1,339 @@
+{
+  "meta": {
+    "timestamp": "2026-03-16T18-43-29Z",
+    "iterations": 3,
+    "token_cost_input_usd_per_million": 3.0,
+    "context_window_tokens": 200000,
+    "chars_per_token": 4,
+    "sysdig_host": "https://prodmon.app.sysdig.com"
+  },
+  "scenarios": [
+    {
+      "name": "vulns_list",
+      "description": "List vulnerability workloads (default page)",
+      "endpoint": "/secure/vulnerability/v1/runtime-results",
+      "approaches": [
+        {
+          "approach": "cli_table",
+          "description": "CLI default (table)",
+          "error": "CLI exit 2: Error: Unauthorized: unauthorized",
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "raw_measurements": []
+        },
+        {
+          "approach": "cli_json",
+          "description": "CLI --format json (full)",
+          "error": "CLI exit 2: Error: Unauthorized: unauthorized",
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "raw_measurements": []
+        },
+        {
+          "approach": "api_raw",
+          "description": "API raw response",
+          "error": "Unauthorized: unauthorized\n",
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "raw_measurements": []
+        },
+        {
+          "approach": "api_filtered",
+          "description": "API field-selected",
+          "error": "Unauthorized: unauthorized\n",
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "raw_measurements": []
+        }
+      ]
+    },
+    {
+      "name": "events_list",
+      "description": "List security events (last 1h, default page)",
+      "endpoint": "/secure/events/v1/events",
+      "approaches": [
+        {
+          "approach": "cli_table",
+          "description": "CLI default (table)",
+          "error": "CLI exit 2: Error: Authentication failed: Unauthorized: unauthorized",
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "raw_measurements": []
+        },
+        {
+          "approach": "cli_json",
+          "description": "CLI --format json (full)",
+          "error": "CLI exit 2: Error: Authentication failed: Unauthorized: unauthorized",
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "raw_measurements": []
+        },
+        {
+          "approach": "api_raw",
+          "description": "API raw response",
+          "error": "Unauthorized: unauthorized\n",
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "raw_measurements": []
+        },
+        {
+          "approach": "api_filtered",
+          "description": "API field-selected",
+          "error": "Unauthorized: unauthorized\n",
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "raw_measurements": []
+        }
+      ]
+    },
+    {
+      "name": "audit_recent_commands",
+      "description": "Activity audit log (last 1h)",
+      "endpoint": "/api/auditTrail/v1/events",
+      "approaches": [
+        {
+          "approach": "cli_table",
+          "description": "CLI default (table)",
+          "error": null,
+          "latency_mean_ms": 1397.7,
+          "latency_p50_ms": 1376.3,
+          "latency_p95_ms": 1376.3,
+          "bytes_mean": 8,
+          "tokens_mean": 2,
+          "cost_per_call_usd": 6e-06,
+          "context_window_pct": 0.001,
+          "raw_measurements": [
+            {
+              "latency_ms": 1472.1,
+              "payload_bytes": 8,
+              "token_count": 2
+            },
+            {
+              "latency_ms": 1376.3,
+              "payload_bytes": 8,
+              "token_count": 2
+            },
+            {
+              "latency_ms": 1344.7,
+              "payload_bytes": 8,
+              "token_count": 2
+            }
+          ]
+        },
+        {
+          "approach": "cli_json",
+          "description": "CLI --format json (full)",
+          "error": null,
+          "latency_mean_ms": 1331.6,
+          "latency_p50_ms": 1332.7,
+          "latency_p95_ms": 1332.7,
+          "bytes_mean": 50,
+          "tokens_mean": 12,
+          "cost_per_call_usd": 3.6e-05,
+          "context_window_pct": 0.006,
+          "raw_measurements": [
+            {
+              "latency_ms": 1332.7,
+              "payload_bytes": 50,
+              "token_count": 12
+            },
+            {
+              "latency_ms": 1325.2,
+              "payload_bytes": 50,
+              "token_count": 12
+            },
+            {
+              "latency_ms": 1336.9,
+              "payload_bytes": 50,
+              "token_count": 12
+            }
+          ]
+        },
+        {
+          "approach": "api_raw",
+          "description": "API raw response",
+          "error": "Unauthorized: Unauthorized",
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "raw_measurements": []
+        },
+        {
+          "approach": "api_filtered",
+          "description": "API field-selected",
+          "error": "Unauthorized: Unauthorized",
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "raw_measurements": []
+        }
+      ]
+    },
+    {
+      "name": "vulns_overview",
+      "description": "Vulnerability risk overview (aggregated counts)",
+      "endpoint": "/secure/vulnerability/v1/runtime-results/overview",
+      "approaches": [
+        {
+          "approach": "cli_table",
+          "description": "CLI default (table)",
+          "error": "CLI exit 2: Error: Authentication failed: Unauthorized: unauthorized",
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "raw_measurements": []
+        },
+        {
+          "approach": "cli_json",
+          "description": "CLI --format json (full)",
+          "error": "CLI exit 2: Error: Authentication failed: Unauthorized: unauthorized",
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "raw_measurements": []
+        },
+        {
+          "approach": "api_raw",
+          "description": "API raw response",
+          "error": "Unauthorized: unauthorized\n",
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "raw_measurements": []
+        },
+        {
+          "approach": "api_filtered",
+          "description": "API field-selected",
+          "error": "Unauthorized: unauthorized\n",
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "raw_measurements": []
+        }
+      ]
+    },
+    {
+      "name": "platform_audit_events",
+      "description": "Platform audit events (logins, config changes) last 1h",
+      "endpoint": "/api/platform/v1/audit",
+      "approaches": [
+        {
+          "approach": "cli_table",
+          "description": "CLI default (table)",
+          "error": "CLI exit 2: Error: Unauthorized: unauthorized",
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "raw_measurements": []
+        },
+        {
+          "approach": "cli_json",
+          "description": "CLI --format json (full)",
+          "error": "CLI exit 2: Error: Unauthorized: unauthorized",
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "raw_measurements": []
+        },
+        {
+          "approach": "api_raw",
+          "description": "API raw response",
+          "error": "Unauthorized: Unauthorized",
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "raw_measurements": []
+        },
+        {
+          "approach": "api_filtered",
+          "description": "API field-selected",
+          "error": "Unauthorized: Unauthorized",
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "raw_measurements": []
+        }
+      ]
+    }
+  ]
+}

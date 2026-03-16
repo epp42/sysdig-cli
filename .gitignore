@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.eggs/
+dist/
+build/
+venv/
+.venv/
+.coverage
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+
+# Sysdig
+~/.sysdig/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+venv/
