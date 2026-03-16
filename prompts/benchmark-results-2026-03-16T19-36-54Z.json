@@ -1,0 +1,755 @@
+{
+  "meta": {
+    "timestamp": "2026-03-16T19-36-54Z",
+    "iterations": 3,
+    "token_cost_input_usd_per_million": 3.0,
+    "context_window_tokens": 200000,
+    "chars_per_token": 4,
+    "sysdig_host": "https://prodmon.app.sysdig.com",
+    "profile": "default"
+  },
+  "latency_probes": {
+    "vulns_endpoint": {
+      "status": "auth_error",
+      "latency_mean_ms": 388.9,
+      "latency_p50_ms": 194.8,
+      "latency_p95_ms": 194.8
+    },
+    "events_endpoint": {
+      "status": "auth_error",
+      "latency_mean_ms": 196.9,
+      "latency_p50_ms": 196.5,
+      "latency_p95_ms": 196.5
+    },
+    "audit_endpoint": {
+      "status": "auth_error",
+      "latency_mean_ms": 194.9,
+      "latency_p50_ms": 195.2,
+      "latency_p95_ms": 195.2
+    },
+    "platform_audit": {
+      "status": "auth_error",
+      "latency_mean_ms": 194.7,
+      "latency_p50_ms": 194.9,
+      "latency_p95_ms": 194.9
+    }
+  },
+  "live_scenarios": [
+    {
+      "name": "vulns_list",
+      "description": "Vulnerability workload list (25 items)",
+      "endpoint": "/secure/vulnerability/v1/runtime-results",
+      "approaches": [
+        {
+          "approach": "cli_table",
+          "description": "CLI default (table)",
+          "error": null,
+          "all_auth_errors": true,
+          "latency_mean_ms": 100.0,
+          "latency_p50_ms": 100.0,
+          "latency_p95_ms": 100.0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "measurements": [
+            {
+              "latency_ms": 100.0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 100.0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 100.0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            }
+          ]
+        },
+        {
+          "approach": "cli_json",
+          "description": "CLI --format json",
+          "error": null,
+          "all_auth_errors": true,
+          "latency_mean_ms": 100.0,
+          "latency_p50_ms": 100.0,
+          "latency_p95_ms": 100.0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "measurements": [
+            {
+              "latency_ms": 100.0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 100.0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 100.0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            }
+          ]
+        },
+        {
+          "approach": "api_raw",
+          "description": "API raw JSON",
+          "error": null,
+          "all_auth_errors": true,
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "measurements": [
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            }
+          ]
+        },
+        {
+          "approach": "api_filtered",
+          "description": "API field-selected",
+          "error": null,
+          "all_auth_errors": true,
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "measurements": [
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "events_list",
+      "description": "Security events \u2014 last 1h (50 items)",
+      "endpoint": "/secure/events/v1/events",
+      "approaches": [
+        {
+          "approach": "cli_table",
+          "description": "CLI default (table)",
+          "error": null,
+          "all_auth_errors": true,
+          "latency_mean_ms": 100.0,
+          "latency_p50_ms": 100.0,
+          "latency_p95_ms": 100.0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "measurements": [
+            {
+              "latency_ms": 100.0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 100.0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 100.0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            }
+          ]
+        },
+        {
+          "approach": "cli_json",
+          "description": "CLI --format json",
+          "error": null,
+          "all_auth_errors": true,
+          "latency_mean_ms": 100.0,
+          "latency_p50_ms": 100.0,
+          "latency_p95_ms": 100.0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "measurements": [
+            {
+              "latency_ms": 100.0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 100.0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 100.0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            }
+          ]
+        },
+        {
+          "approach": "api_raw",
+          "description": "API raw JSON",
+          "error": null,
+          "all_auth_errors": true,
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "measurements": [
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            }
+          ]
+        },
+        {
+          "approach": "api_filtered",
+          "description": "API field-selected",
+          "error": null,
+          "all_auth_errors": true,
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "measurements": [
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "audit_recent_commands",
+      "description": "Activity audit \u2014 last 1h",
+      "endpoint": "/api/auditTrail/v1/events",
+      "approaches": [
+        {
+          "approach": "cli_table",
+          "description": "CLI default (table)",
+          "error": null,
+          "all_auth_errors": false,
+          "latency_mean_ms": 1300.0,
+          "latency_p50_ms": 1291.8,
+          "latency_p95_ms": 1291.8,
+          "bytes_mean": 8,
+          "tokens_mean": 2,
+          "cost_per_call_usd": 6e-06,
+          "context_window_pct": 0.001,
+          "measurements": [
+            {
+              "latency_ms": 1321.3,
+              "payload_bytes": 8,
+              "token_count": 2,
+              "auth_error": false
+            },
+            {
+              "latency_ms": 1291.8,
+              "payload_bytes": 8,
+              "token_count": 2,
+              "auth_error": false
+            },
+            {
+              "latency_ms": 1286.9,
+              "payload_bytes": 8,
+              "token_count": 2,
+              "auth_error": false
+            }
+          ]
+        },
+        {
+          "approach": "cli_json",
+          "description": "CLI --format json",
+          "error": null,
+          "all_auth_errors": false,
+          "latency_mean_ms": 1297.1,
+          "latency_p50_ms": 1298.7,
+          "latency_p95_ms": 1298.7,
+          "bytes_mean": 50,
+          "tokens_mean": 12,
+          "cost_per_call_usd": 3.6e-05,
+          "context_window_pct": 0.006,
+          "measurements": [
+            {
+              "latency_ms": 1300.5,
+              "payload_bytes": 50,
+              "token_count": 12,
+              "auth_error": false
+            },
+            {
+              "latency_ms": 1292.2,
+              "payload_bytes": 50,
+              "token_count": 12,
+              "auth_error": false
+            },
+            {
+              "latency_ms": 1298.7,
+              "payload_bytes": 50,
+              "token_count": 12,
+              "auth_error": false
+            }
+          ]
+        },
+        {
+          "approach": "api_raw",
+          "description": "API raw JSON",
+          "error": null,
+          "all_auth_errors": true,
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "measurements": [
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            }
+          ]
+        },
+        {
+          "approach": "api_filtered",
+          "description": "API field-selected",
+          "error": null,
+          "all_auth_errors": true,
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "measurements": [
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "platform_audit_events",
+      "description": "Platform audit events \u2014 last 1h",
+      "endpoint": "/api/platform/v1/audit",
+      "approaches": [
+        {
+          "approach": "cli_table",
+          "description": "CLI default (table)",
+          "error": null,
+          "all_auth_errors": true,
+          "latency_mean_ms": 100.0,
+          "latency_p50_ms": 100.0,
+          "latency_p95_ms": 100.0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "measurements": [
+            {
+              "latency_ms": 100.0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 100.0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 100.0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            }
+          ]
+        },
+        {
+          "approach": "cli_json",
+          "description": "CLI --format json",
+          "error": null,
+          "all_auth_errors": true,
+          "latency_mean_ms": 100.0,
+          "latency_p50_ms": 100.0,
+          "latency_p95_ms": 100.0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "measurements": [
+            {
+              "latency_ms": 100.0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 100.0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 100.0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            }
+          ]
+        },
+        {
+          "approach": "api_raw",
+          "description": "API raw JSON",
+          "error": null,
+          "all_auth_errors": true,
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "measurements": [
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            }
+          ]
+        },
+        {
+          "approach": "api_filtered",
+          "description": "API field-selected",
+          "error": null,
+          "all_auth_errors": true,
+          "latency_mean_ms": 0,
+          "latency_p50_ms": 0,
+          "latency_p95_ms": 0,
+          "bytes_mean": 0,
+          "tokens_mean": 0,
+          "cost_per_call_usd": 0.0,
+          "context_window_pct": 0.0,
+          "measurements": [
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            },
+            {
+              "latency_ms": 0,
+              "payload_bytes": 0,
+              "token_count": 0,
+              "auth_error": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "synthetic_analysis": [
+    {
+      "scenario": "vulns_list (10 items)",
+      "item_count": 10,
+      "cli_table_tokens": 246,
+      "cli_json_tokens": 1269,
+      "api_raw_tokens": 1291,
+      "api_filtered_tokens": 85,
+      "savings_api_raw_vs_filtered_pct": 93.4,
+      "savings_cli_table_vs_filtered_pct": 65.4,
+      "reduction_ratio": 15.2
+    },
+    {
+      "scenario": "events_list (20 events)",
+      "item_count": 20,
+      "cli_table_tokens": 520,
+      "cli_json_tokens": 3257,
+      "api_raw_tokens": 3251,
+      "api_filtered_tokens": 396,
+      "savings_api_raw_vs_filtered_pct": 87.8,
+      "savings_cli_table_vs_filtered_pct": 23.8,
+      "reduction_ratio": 8.2
+    },
+    {
+      "scenario": "audit_commands (10 entries)",
+      "item_count": 10,
+      "cli_table_tokens": 312,
+      "cli_json_tokens": 926,
+      "api_raw_tokens": 926,
+      "api_filtered_tokens": 209,
+      "savings_api_raw_vs_filtered_pct": 77.4,
+      "savings_cli_table_vs_filtered_pct": 33.0,
+      "reduction_ratio": 4.4
+    },
+    {
+      "scenario": "vulns_list (25 items)",
+      "item_count": 25,
+      "cli_table_tokens": 550,
+      "cli_json_tokens": 3155,
+      "api_raw_tokens": 3176,
+      "api_filtered_tokens": 211,
+      "savings_api_raw_vs_filtered_pct": 93.4,
+      "savings_cli_table_vs_filtered_pct": 61.6,
+      "reduction_ratio": 15.1
+    },
+    {
+      "scenario": "events_list (50 events)",
+      "item_count": 50,
+      "cli_table_tokens": 1225,
+      "cli_json_tokens": 8134,
+      "api_raw_tokens": 8128,
+      "api_filtered_tokens": 991,
+      "savings_api_raw_vs_filtered_pct": 87.8,
+      "savings_cli_table_vs_filtered_pct": 19.1,
+      "reduction_ratio": 8.2
+    },
+    {
+      "scenario": "audit_commands (25 entries)",
+      "item_count": 25,
+      "cli_table_tokens": 698,
+      "cli_json_tokens": 2315,
+      "api_raw_tokens": 2315,
+      "api_filtered_tokens": 522,
+      "savings_api_raw_vs_filtered_pct": 77.5,
+      "savings_cli_table_vs_filtered_pct": 25.2,
+      "reduction_ratio": 4.4
+    },
+    {
+      "scenario": "vulns_list (100 items)",
+      "item_count": 100,
+      "cli_table_tokens": 2069,
+      "cli_json_tokens": 12580,
+      "api_raw_tokens": 12601,
+      "api_filtered_tokens": 846,
+      "savings_api_raw_vs_filtered_pct": 93.3,
+      "savings_cli_table_vs_filtered_pct": 59.1,
+      "reduction_ratio": 14.9
+    },
+    {
+      "scenario": "events_list (200 events)",
+      "item_count": 200,
+      "cli_table_tokens": 4750,
+      "cli_json_tokens": 32503,
+      "api_raw_tokens": 32497,
+      "api_filtered_tokens": 3961,
+      "savings_api_raw_vs_filtered_pct": 87.8,
+      "savings_cli_table_vs_filtered_pct": 16.6,
+      "reduction_ratio": 8.2
+    },
+    {
+      "scenario": "audit_commands (100 entries)",
+      "item_count": 100,
+      "cli_table_tokens": 2630,
+      "cli_json_tokens": 9265,
+      "api_raw_tokens": 9265,
+      "api_filtered_tokens": 2090,
+      "savings_api_raw_vs_filtered_pct": 77.4,
+      "savings_cli_table_vs_filtered_pct": 20.5,
+      "reduction_ratio": 4.4
+    }
+  ],
+  "subprocess_overhead": {
+    "api_latency_mean_ms": 221.0,
+    "api_latency_p95_ms": 196.5,
+    "cli_latency_mean_ms": 2309.2,
+    "cli_latency_p95_ms": 2338.2,
+    "overhead_ms": 2088.2,
+    "overhead_ratio": 10.45
+  },
+  "pagination_analysis": [
+    {
+      "scenario": "events --all (100 events, 1 pages)",
+      "total_items": 100,
+      "num_pages": 1,
+      "cli_ndjson_tokens": 16225,
+      "api_raw_all_tokens": 16269,
+      "api_filtered_all_tokens": 1607,
+      "savings_vs_api_raw_pct": 90.1
+    },
+    {
+      "scenario": "events --all (300 events, 3 pages)",
+      "total_items": 300,
+      "num_pages": 3,
+      "cli_ndjson_tokens": 48670,
+      "api_raw_all_tokens": 48803,
+      "api_filtered_all_tokens": 4818,
+      "savings_vs_api_raw_pct": 90.1
+    },
+    {
+      "scenario": "events --all (1000 events, 10 pages)",
+      "total_items": 1000,
+      "num_pages": 10,
+      "cli_ndjson_tokens": 162226,
+      "api_raw_all_tokens": 162676,
+      "api_filtered_all_tokens": 16057,
+      "savings_vs_api_raw_pct": 90.1
+    }
+  ],
+  "filter_complexity": [
+    {
+      "scenario": "events --rule drift --severity 6 --namespace production",
+      "before_filter": 200,
+      "after_filter": 3,
+      "cli_table_tokens": 120,
+      "api_raw_tokens": 32503,
+      "api_filtered_tokens": 46,
+      "cli_boilerplate_lines": 1,
+      "api_boilerplate_lines": 12
+    },
+    {
+      "scenario": "vulns list --severity critical (100\u219293 workloads)",
+      "before_filter": 100,
+      "after_filter": 93,
+      "cli_table_tokens": 1927,
+      "api_raw_tokens": 12576,
+      "api_filtered_tokens": 703,
+      "cli_boilerplate_lines": 1,
+      "api_boilerplate_lines": 10
+    }
+  ]
+}

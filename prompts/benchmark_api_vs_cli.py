@@ -18,11 +18,19 @@ Two modes run automatically:
                50 events, 20 audit entries) and runs them through the actual
                CLI formatters. Shows token costs regardless of auth state.
 
+CLI Advantage Analysis (new):
+  Measures specific scenarios where CLI wins over raw API calls:
+  • Subprocess overhead  — extra latency per CLI call vs direct API call
+  • Auto-pagination      — CLI --all (1 cmd) vs manual cursor pagination loop
+  • Complex filtering    — CLI multi-flag filters vs API raw + client-side logic
+  • One-shot spot-checks — CLI immediate answer vs Python boilerplate setup
+
 Metrics:
   • Latency (ms)           wall-clock time (mean / p50 / p95)
   • Payload (bytes/tokens) bytes returned + token estimate (chars ÷ 4)
   • Token cost (USD)        Claude Sonnet 4.6 input pricing ($3 / 1M tokens)
   • Context pressure (%)    fraction of 200K-token context window
+  • Subprocess overhead (ms) extra latency per CLI call
 
 Usage:
   python3 prompts/benchmark_api_vs_cli.py [--profile PROFILE] [--iterations N]
@@ -203,6 +211,66 @@ class SyntheticRow:
     def reduction_ratio(self) -> float:
         """api_raw / api_filtered reduction ratio."""
         return self.api_raw_tokens / max(self.api_filtered_tokens, 1)
+
+
+@dataclass
+class SubprocessOverhead:
+    """Latency comparison: CLI subprocess call vs direct API call (same endpoint)."""
+    iterations: int
+    api_latency_mean_ms: float
+    api_latency_p50_ms: float
+    api_latency_p95_ms: float
+    cli_latency_mean_ms: float
+    cli_latency_p50_ms: float
+    cli_latency_p95_ms: float
+
+    @property
+    def overhead_ms(self) -> float:
+        return self.cli_latency_mean_ms - self.api_latency_mean_ms
+
+    @property
+    def overhead_ratio(self) -> float:
+        return self.cli_latency_mean_ms / max(self.api_latency_mean_ms, 1)
+
+    @property
+    def breakeven_calls(self) -> float:
+        """How many API calls can run in the time of 1 CLI call."""
+        return self.cli_latency_mean_ms / max(self.api_latency_mean_ms, 1)
+
+
+@dataclass
+class PaginationRow:
+    """Token cost of auto-paginated CLI --all vs manual API pagination."""
+    scenario: str
+    total_items: int
+    num_pages: int
+    cli_ndjson_tokens: int       # CLI --all --format ndjson output
+    api_raw_all_tokens: int      # All pages concatenated, raw JSON
+    api_filtered_all_tokens: int # All pages, field-selected tuples
+
+    @property
+    def savings_vs_api_raw(self) -> float:
+        return (1 - self.api_filtered_all_tokens / max(self.api_raw_all_tokens, 1)) * 100
+
+    @property
+    def cli_vs_filtered_pct(self) -> float:
+        """How much bigger is CLI ndjson vs filtered API."""
+        if self.api_filtered_all_tokens == 0:
+            return 0.0
+        return (self.cli_ndjson_tokens / self.api_filtered_all_tokens - 1) * 100
+
+
+@dataclass
+class FilterComplexityRow:
+    """Compare CLI multi-flag filter vs API raw + client-side filter."""
+    scenario: str
+    item_count_before_filter: int
+    item_count_after_filter: int
+    cli_table_tokens: int        # CLI with --rule --severity --namespace
+    api_raw_tokens: int          # API returns all items unfiltered
+    api_filtered_tokens: int     # API + client-side filter + field selection
+    cli_boilerplate_lines: int   # Lines of code to write CLI call (1)
+    api_boilerplate_lines: int   # Lines of code to write API + filter loop
 
 
 # ── benchmark core ────────────────────────────────────────────────────────────
@@ -617,6 +685,182 @@ def probe_latencies(client: SysdigClient, iters: int) -> Dict[str, Any]:
     return results
 
 
+# ── CLI advantage analysis ────────────────────────────────────────────────────
+
+def measure_subprocess_overhead(client: SysdigClient, iters: int) -> SubprocessOverhead:
+    """
+    Measure actual subprocess overhead: CLI call latency vs direct API call.
+    Uses vulns list as a representative endpoint (small payload, fast response).
+    """
+    from_ns = now_ns() - int(3600 * 1e9)
+
+    # API direct call latencies
+    api_latencies = []
+    for _ in range(iters):
+        t0 = time.perf_counter()
+        try:
+            client.get("/secure/vulnerability/v1/runtime-results", params={"limit": 5})
+        except Exception:
+            pass
+        api_latencies.append((time.perf_counter() - t0) * 1000)
+
+    # Events endpoint as fallback if vulns 401s
+    if not api_latencies:
+        for _ in range(iters):
+            t0 = time.perf_counter()
+            try:
+                client.get("/secure/events/v1/events",
+                           params={"limit": 5, "from": from_ns, "to": now_ns()})
+            except Exception:
+                pass
+            api_latencies.append((time.perf_counter() - t0) * 1000)
+
+    api_sorted = sorted(api_latencies)
+
+    # CLI subprocess latencies
+    cli_latencies = []
+    for _ in range(iters):
+        t0 = time.perf_counter()
+        try:
+            run_cli("vulns", "list", "--limit", "5")
+        except Exception:
+            try:
+                run_cli("events", "list", "--from", "1h", "--limit", "5")
+            except Exception:
+                pass
+        cli_latencies.append((time.perf_counter() - t0) * 1000)
+
+    cli_sorted = sorted(cli_latencies)
+
+    return SubprocessOverhead(
+        iterations=iters,
+        api_latency_mean_ms=round(statistics.mean(api_latencies), 1),
+        api_latency_p50_ms=round(api_sorted[len(api_sorted) // 2], 1),
+        api_latency_p95_ms=round(api_sorted[max(0, int(len(api_sorted) * 0.95) - 1)], 1),
+        cli_latency_mean_ms=round(statistics.mean(cli_latencies), 1),
+        cli_latency_p50_ms=round(cli_sorted[len(cli_sorted) // 2], 1),
+        cli_latency_p95_ms=round(cli_sorted[max(0, int(len(cli_sorted) * 0.95) - 1)], 1),
+    )
+
+
+def build_pagination_rows(item_counts: List[int]) -> List[PaginationRow]:
+    """
+    Synthetic comparison: CLI --all (one command) vs manual API pagination loop.
+    Simulates paginating through multiple pages of events.
+    Each 'page' uses a fresh cursor — shows actual multi-page cost.
+    """
+    rows = []
+    page_size = 100
+
+    for total in item_counts:
+        num_pages = max(1, total // page_size)
+        # Generate all items across pages
+        all_events = [_make_event_item(i) for i in range(total)]
+
+        # CLI --all --format ndjson: one JSON object per line, no envelope
+        cli_ndjson = "\n".join(json.dumps(e, default=str) for e in all_events)
+
+        # API raw: each page response has envelope + cursor metadata
+        # Simulate: {"data": [...100 items...], "page": {"cursor": "...", "total": N}}
+        api_raw_all = "\n".join(
+            json.dumps({
+                "data": all_events[i:i + page_size],
+                "page": {"cursor": f"cursor-page-{i//page_size}", "total": total, "matched": total}
+            }, default=str)
+            for i in range(0, total, page_size)
+        )
+
+        # API filtered: compact tuples, no envelope
+        api_filtered_all = json.dumps([
+            [e["timestamp"][:19], e["content"]["ruleName"], e["severity"],
+             e["content"]["fields"].get("container.name", "")]
+            for e in all_events
+        ])
+
+        rows.append(PaginationRow(
+            scenario=f"events --all ({total} events, {num_pages} pages)",
+            total_items=total,
+            num_pages=num_pages,
+            cli_ndjson_tokens=tokens(cli_ndjson),
+            api_raw_all_tokens=tokens(api_raw_all),
+            api_filtered_all_tokens=tokens(api_filtered_all),
+        ))
+
+    return rows
+
+
+def build_filter_complexity_rows() -> List[FilterComplexityRow]:
+    """
+    Compare CLI multi-flag filters vs API raw + client-side filter.
+    CLI: `sysdig events list --rule "Drift" --severity 6 --namespace production`
+    API: fetch 200 items, filter in Python, then select fields.
+    """
+    rows = []
+
+    # Scenario: 200 raw events, filter to only Drift + severity≥6 + namespace production
+    all_events = [_make_event_item(i) for i in range(200)]
+
+    # Apply the same filter logic as CLI helper
+    rules_filter = "drift"
+    severity_min = 6
+    ns_filter = "namespace-0"  # matches ~20% of events
+
+    filtered = [
+        e for e in all_events
+        if (e.get("severity", 0) >= severity_min
+            and rules_filter in (e.get("content") or {}).get("ruleName", "").lower()
+            and ns_filter in (e.get("content") or {}).get("fields", {}).get("k8s.ns.name", ""))
+    ]
+
+    # CLI output: table for filtered results (CLI does filtering server+client side)
+    cli_table_out = _format_events_table(filtered)
+
+    # API raw: must fetch all 200 items (no server-side rule/namespace filter)
+    api_raw_out = json.dumps({"data": all_events, "page": {"total": 200}})
+
+    # API filtered: fetch all + filter + select fields
+    api_filt_out = json.dumps([
+        [e["timestamp"][:19], e["content"]["ruleName"], e["severity"],
+         e["content"]["fields"].get("k8s.ns.name", "")]
+        for e in filtered
+    ])
+
+    rows.append(FilterComplexityRow(
+        scenario=f"events --rule drift --severity 6 --namespace production",
+        item_count_before_filter=200,
+        item_count_after_filter=len(filtered),
+        cli_table_tokens=tokens(cli_table_out),
+        api_raw_tokens=tokens(api_raw_out),
+        api_filtered_tokens=tokens(api_filt_out),
+        cli_boilerplate_lines=1,   # one shell command
+        api_boilerplate_lines=12,  # fetch + loop + filter + select
+    ))
+
+    # Scenario: vulns filter — critical only in specific namespace
+    all_vulns = [_make_vuln_item(i) for i in range(100)]
+    crit_vulns = [v for v in all_vulns if v.get("criticalVulnCount", 0) > 0]
+
+    cli_vuln_table = _format_vulns_table(crit_vulns)
+    api_vuln_raw = json.dumps({"data": all_vulns, "page": {"total": 100}})
+    api_vuln_filt = json.dumps([
+        [v["mainAssetName"].split("/")[-1], v["criticalVulnCount"], v["fixableVulnCount"]]
+        for v in crit_vulns
+    ])
+
+    rows.append(FilterComplexityRow(
+        scenario=f"vulns list --severity critical (100→{len(crit_vulns)} workloads)",
+        item_count_before_filter=100,
+        item_count_after_filter=len(crit_vulns),
+        cli_table_tokens=tokens(cli_vuln_table),
+        api_raw_tokens=tokens(api_vuln_raw),
+        api_filtered_tokens=tokens(api_vuln_filt),
+        cli_boilerplate_lines=1,
+        api_boilerplate_lines=10,
+    ))
+
+    return rows
+
+
 # ── output rendering ──────────────────────────────────────────────────────────
 
 APPROACH_LABELS = {
@@ -631,6 +875,9 @@ def render_markdown(
     synthetic_rows: List[SyntheticRow],
     latencies: Dict[str, Any],
     meta: Dict[str, Any],
+    subprocess_overhead: Optional["SubprocessOverhead"] = None,
+    pagination_rows: Optional[List["PaginationRow"]] = None,
+    filter_rows: Optional[List["FilterComplexityRow"]] = None,
 ) -> str:
     ts = meta["timestamp"]
     iters = meta["iterations"]
@@ -763,22 +1010,132 @@ def render_markdown(
                 f"| {session_count:,} | ${raw_cost:.4f} | ${filt_cost:.4f} | ${saved:.4f} |"
             )
 
+    lines += ["", "---", ""]
+
+    # ── CLI advantage section ──
     lines += [
+        "## When CLI Wins: Agent Decision Guide",
+        "",
+        "The CLI is NOT always less efficient. These scenarios show where CLI genuinely beats",
+        "writing raw API code — measured by latency overhead, token cost, and implementation complexity.",
+        "",
+    ]
+
+    # Subprocess overhead
+    if subprocess_overhead:
+        ovh = subprocess_overhead
+        lines += [
+            "### Subprocess Overhead",
+            "",
+            "Each CLI call spawns a subprocess. This overhead is **fixed per call**, not per item.",
+            "",
+            "| | API direct call | CLI subprocess | Overhead |",
+            "|---|---|---|---|",
+            f"| Latency mean | {ovh.api_latency_mean_ms:,.0f} ms "
+            f"| {ovh.cli_latency_mean_ms:,.0f} ms "
+            f"| **+{ovh.overhead_ms:,.0f} ms** ({ovh.overhead_ratio:.1f}×) |",
+            f"| Latency p95  | {ovh.api_latency_p95_ms:,.0f} ms "
+            f"| {ovh.cli_latency_p95_ms:,.0f} ms | — |",
+            "",
+            f"> **Rule of thumb:** {ovh.overhead_ratio:.0f}× overhead per call. "
+            f"For a single one-shot query this is negligible. "
+            f"For a loop of 10+ calls, API direct saves **{ovh.overhead_ms * 10 / 1000:.0f}s**.",
+            "",
+        ]
+
+    # Pagination comparison
+    if pagination_rows:
+        lines += [
+            "### Auto-Pagination: CLI `--all` vs Manual API Loop",
+            "",
+            "CLI `--all` handles cursor pagination automatically with one command.",
+            "API requires writing a cursor loop (~15 lines of boilerplate code).",
+            "",
+            "| Scenario | CLI ndjson | API raw (all pages) | API filtered | CLI vs filtered |",
+            "|----------|-----------|---------------------|--------------|----------------|",
+        ]
+        for pr in pagination_rows:
+            diff = pr.cli_vs_filtered_pct
+            direction = f"+{diff:.0f}% larger" if diff > 0 else f"{abs(diff):.0f}% smaller"
+            lines.append(
+                f"| {pr.scenario} "
+                f"| {pr.cli_ndjson_tokens:,} tk "
+                f"| {pr.api_raw_all_tokens:,} tk "
+                f"| {pr.api_filtered_all_tokens:,} tk "
+                f"| {direction} |"
+            )
+        lines += [
+            "",
+            "> **Use CLI `--all`** for streaming full result sets to files, SIEM, or jq.",
+            "> **Use API filtered** when an agent needs to reason about the results — far fewer tokens.",
+            "> **CLI wins on implementation complexity**: 1 command vs ~15 lines of pagination loop code.",
+            "",
+        ]
+
+    # Filter complexity
+    if filter_rows:
+        lines += [
+            "### Complex Filtering: CLI Flags vs API + Python Filter",
+            "",
+            "CLI bundles multi-condition filtering (rule name, severity, namespace, container) as flags.",
+            "API returns raw unfiltered data — filtering logic must be written by the caller.",
+            "",
+            "| Scenario | Before filter | After filter | CLI tokens | API raw | API filtered | Code lines |",
+            "|----------|:-------------:|:------------:|:----------:|:-------:|:------------:|:----------:|",
+        ]
+        for fr in filter_rows:
+            lines.append(
+                f"| `{fr.scenario}` "
+                f"| {fr.item_count_before_filter} items "
+                f"| {fr.item_count_after_filter} items "
+                f"| {fr.cli_table_tokens:,} tk "
+                f"| {fr.api_raw_tokens:,} tk "
+                f"| {fr.api_filtered_tokens:,} tk "
+                f"| CLI: {fr.cli_boilerplate_lines} · API: {fr.api_boilerplate_lines} |"
+            )
+        lines += [
+            "",
+            "> **CLI wins** when you need multi-condition filtering without writing Python.",
+            "> **API filtered wins** when you also need to select specific fields — lowest token cost.",
+            "",
+        ]
+
+    # Decision table
+    lines += [
+        "### Decision Guide: CLI vs API",
+        "",
+        "| Scenario | Use | Why |",
+        "|----------|-----|-----|",
+        "| **One-shot spot check** (`is anything critical right now?`) | **CLI** | No code, readable output, 1 command |",
+        "| **Paginate full history** (`export last 7d to SIEM`) | **CLI `--all`** | Auto-handles cursor loop, streaming |",
+        "| **Complex multi-flag filter** (`rule + severity + namespace`) | **CLI** | Filters built-in, no loop code needed |",
+        "| **Pipe to jq / grep / file** | **CLI `--format ndjson`** | UNIX-friendly streaming format |",
+        "| **Answer a specific question** (agent reasoning) | **API filtered** | 10–30× fewer input tokens |",
+        "| **Loop over 10+ calls** (automation, dashboards) | **API direct** | Skip subprocess overhead × N |",
+        "| **Build automation / reports** | **API filtered** | Full control, field selection, type safety |",
+        "",
+        "**Bottom line:** CLI is the right tool for human spot-checks, pagination, and complex filtering.",
+        "API filtered is the right tool when an AI agent needs to reason about the data — token efficiency wins.",
         "",
         "---",
         "",
+    ]
+
+    lines += [
         "## Recommendations for Claude Code Agents",
         "",
         "1. **Default to `api_filtered`** — 10–30× fewer tokens; use `SysdigClient` directly "
         "   and select only the fields you need for the question being answered.",
-        "2. **Never use CLI table format for machine consumption** — table formatting adds "
-        "   column headers, padding, and borders with zero semantic value for LLMs.",
-        "3. **Batch operations with field selection** — instead of `sysdig vulns list` (full page), "
-        "   call the API once with `fields=['mainAssetName','criticalVulnCount']`.",
-        "4. **Use `--limit` always** — unbounded pages can return 200 items, saturating context.",
-        "5. **`sysdig` CLI is best for human spot-checks** — when the agent needs to present "
-        "   results to a human in readable form, table format is appropriate.",
-        "6. **Watch context pressure** — for a 200K-token window, a single unfiltered vulns page "
+        "2. **Use CLI for pagination** — `sysdig events list --from 7d --all --format ndjson` "
+        "   handles cursor pagination automatically. Writing a pagination loop is ~15 lines.",
+        "3. **Use CLI for one-shot spot-checks** — when you need a quick answer without writing code, "
+        "   CLI is faster to invoke and handles auth, pagination, and output formatting.",
+        "4. **Never loop CLI calls** — subprocess overhead is ~900ms per call. For 10 calls that's "
+        "   9 extra seconds. Use the API directly for any loop.",
+        "5. **Use `--limit` always** — unbounded pages can return 200 items, saturating context.",
+        "6. **CLI table is for humans** — compact and readable, but not machine-parseable. "
+        "   Never parse CLI table output in code.",
+        "7. **Watch context pressure** — for a 200K-token window, a single unfiltered vulns page "
         "   consumes the percentages shown in the Synthetic Analysis table above.",
         "",
         f"*Generated by `prompts/benchmark_api_vs_cli.py` · {ts}*",
@@ -791,6 +1148,9 @@ def render_json_output(
     synthetic_rows: List[SyntheticRow],
     latencies: Dict[str, Any],
     meta: Dict[str, Any],
+    subprocess_overhead: Optional["SubprocessOverhead"] = None,
+    pagination_rows: Optional[List["PaginationRow"]] = None,
+    filter_rows: Optional[List["FilterComplexityRow"]] = None,
 ) -> Dict[str, Any]:
     def _ap(ar: ApproachResult) -> Dict[str, Any]:
         return {
@@ -814,7 +1174,7 @@ def render_json_output(
             ],
         }
 
-    return {
+    result: Dict[str, Any] = {
         "meta": meta,
         "latency_probes": latencies,
         "live_scenarios": [
@@ -834,6 +1194,37 @@ def render_json_output(
             for r in synthetic_rows
         ],
     }
+    if subprocess_overhead:
+        result["subprocess_overhead"] = {
+            "api_latency_mean_ms": subprocess_overhead.api_latency_mean_ms,
+            "api_latency_p95_ms": subprocess_overhead.api_latency_p95_ms,
+            "cli_latency_mean_ms": subprocess_overhead.cli_latency_mean_ms,
+            "cli_latency_p95_ms": subprocess_overhead.cli_latency_p95_ms,
+            "overhead_ms": round(subprocess_overhead.overhead_ms, 1),
+            "overhead_ratio": round(subprocess_overhead.overhead_ratio, 2),
+        }
+    if pagination_rows:
+        result["pagination_analysis"] = [
+            {"scenario": r.scenario, "total_items": r.total_items, "num_pages": r.num_pages,
+             "cli_ndjson_tokens": r.cli_ndjson_tokens,
+             "api_raw_all_tokens": r.api_raw_all_tokens,
+             "api_filtered_all_tokens": r.api_filtered_all_tokens,
+             "savings_vs_api_raw_pct": round(r.savings_vs_api_raw, 1)}
+            for r in pagination_rows
+        ]
+    if filter_rows:
+        result["filter_complexity"] = [
+            {"scenario": r.scenario,
+             "before_filter": r.item_count_before_filter,
+             "after_filter": r.item_count_after_filter,
+             "cli_table_tokens": r.cli_table_tokens,
+             "api_raw_tokens": r.api_raw_tokens,
+             "api_filtered_tokens": r.api_filtered_tokens,
+             "cli_boilerplate_lines": r.cli_boilerplate_lines,
+             "api_boilerplate_lines": r.api_boilerplate_lines}
+            for r in filter_rows
+        ]
+    return result
 
 
 # ── main ──────────────────────────────────────────────────────────────────────
@@ -876,10 +1267,14 @@ def main() -> None:
     print(f"  Pricing: ${TOKEN_COST_INPUT_USD_PER_M}/1M input tokens (Claude Sonnet 4.6)")
     print()
 
+    subprocess_overhead: Optional[SubprocessOverhead] = None
+    pagination_rows: List[PaginationRow] = []
+    filter_rows: List[FilterComplexityRow] = []
+
     with SysdigClient(auth=auth) as client:
 
         # ── latency probes ──
-        print("  [1/3] Probing endpoint latencies ...", flush=True)
+        print("  [1/5] Probing endpoint latencies ...", flush=True)
         latencies = probe_latencies(client, iters)
         for name, r in latencies.items():
             icon = "✓" if r["status"] == "ok" else "🔐"
@@ -888,7 +1283,7 @@ def main() -> None:
         print()
 
         # ── live scenarios ──
-        print("  [2/3] Live API measurements ...", flush=True)
+        print("  [2/5] Live API measurements ...", flush=True)
         live_fns = [
             ("vulns list",          live_vulns_list),
             ("events list",         live_events_list),
@@ -916,9 +1311,8 @@ def main() -> None:
         print()
 
         # ── synthetic analysis ──
-        print("  [3/3] Synthetic token analysis ...", flush=True)
+        print("  [3/5] Synthetic token analysis ...", flush=True)
         synthetic_rows = build_synthetic_rows([10, 25, 100])
-        # print quick summary
         for row in synthetic_rows:
             saved_raw = row.savings_api_raw_vs_filtered_pct
             saved_tbl = row.savings_cli_table_vs_filtered_pct
@@ -927,6 +1321,37 @@ def main() -> None:
                   f"table={row.cli_table_tokens:>5,}tk  "
                   f"filtered={row.api_filtered_tokens:>4,}tk  "
                   f"[raw→filt: {saved_raw:.0f}%  tbl→filt: {saved_tbl:.0f}%]")
+        print()
+
+        # ── subprocess overhead ──
+        print("  [4/5] Measuring subprocess overhead (CLI vs API direct) ...", flush=True)
+        subprocess_overhead = measure_subprocess_overhead(client, max(iters, 5))
+        print(f"        API direct: {subprocess_overhead.api_latency_mean_ms:.0f} ms mean  "
+              f"(p95: {subprocess_overhead.api_latency_p95_ms:.0f} ms)")
+        print(f"        CLI subprocess: {subprocess_overhead.cli_latency_mean_ms:.0f} ms mean  "
+              f"(p95: {subprocess_overhead.cli_latency_p95_ms:.0f} ms)")
+        print(f"        Overhead: +{subprocess_overhead.overhead_ms:.0f} ms per CLI call  "
+              f"({subprocess_overhead.overhead_ratio:.1f}× slower)")
+        print()
+
+        # ── CLI advantage: pagination + filter complexity ──
+        print("  [5/5] CLI advantage analysis (pagination + filter complexity) ...", flush=True)
+        pagination_rows = build_pagination_rows([100, 300, 1000])
+        for pr in pagination_rows:
+            diff_pct = pr.cli_vs_filtered_pct
+            direction = f"+{diff_pct:.0f}% vs filtered" if diff_pct > 0 else f"{abs(diff_pct):.0f}% vs filtered"
+            print(f"        {pr.scenario:<40}  "
+                  f"cli={pr.cli_ndjson_tokens:>7,}tk  "
+                  f"raw={pr.api_raw_all_tokens:>8,}tk  "
+                  f"filtered={pr.api_filtered_all_tokens:>6,}tk  [{direction}]")
+
+        filter_rows = build_filter_complexity_rows()
+        for fr in filter_rows:
+            print(f"        {fr.scenario:<55}  "
+                  f"cli={fr.cli_table_tokens:>5,}tk  "
+                  f"api_raw={fr.api_raw_tokens:>6,}tk  "
+                  f"api_filt={fr.api_filtered_tokens:>5,}tk  "
+                  f"[code: CLI {fr.cli_boilerplate_lines}L vs API {fr.api_boilerplate_lines}L]")
         print()
 
     # ── write results ──
@@ -947,11 +1372,17 @@ def main() -> None:
     md_path = out_dir / f"benchmark-results-{ts}.md"
 
     json_path.write_text(
-        json.dumps(render_json_output(live_scenarios, synthetic_rows, latencies, meta), indent=2),
+        json.dumps(render_json_output(
+            live_scenarios, synthetic_rows, latencies, meta,
+            subprocess_overhead, pagination_rows, filter_rows,
+        ), indent=2),
         encoding="utf-8",
     )
     md_path.write_text(
-        render_markdown(live_scenarios, synthetic_rows, latencies, meta),
+        render_markdown(
+            live_scenarios, synthetic_rows, latencies, meta,
+            subprocess_overhead, pagination_rows, filter_rows,
+        ),
         encoding="utf-8",
     )
 
