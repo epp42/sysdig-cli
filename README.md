@@ -259,16 +259,73 @@ sysdig events list --from 7d --all --format ndjson | \
 
 ---
 
+## CLI vs API — When to Use Which
+
+The `sysdig` CLI and the `SysdigClient` Python API are two ways to access the same data. The right choice depends on who's consuming the output.
+
+### Quick guide
+
+| You want to... | Use |
+|----------------|-----|
+| Quickly check what's firing right now | **CLI** — `sysdig events list --from 1h` |
+| Spot-check critical vulns during an incident | **CLI** — fast, readable, no code |
+| Pipe results into `jq`, `grep`, or a script | **CLI `--format json`** or **`--format ndjson`** |
+| Build automation, dashboards, or reports | **API** — `SysdigClient` with field selection |
+| Answer a question in Claude Code | **API filtered** — dramatically fewer tokens |
+| Export full history to SIEM or S3 | **CLI `--all --format ndjson`** — streaming, bounded memory |
+| Explore what endpoints exist | **CLI** — `sysdig schema list` |
+
+### Performance reality
+
+Every Bash tool call Claude makes returns output as **input tokens**. The size of that output directly determines cost and context pressure.
+
+Benchmarked on Claude Sonnet 4.6 ($3/1M input tokens):
+
+| Operation | CLI json | CLI table | **API filtered** | Savings vs raw |
+|-----------|:--------:|:---------:|:----------------:|:--------------:|
+| vulns list (25 workloads) | 3,155 tk | 550 tk | **211 tk** | **93%** · 15× |
+| events list (50 events) | 8,134 tk | 1,225 tk | **991 tk** | **88%** · 8× |
+| audit commands (25 entries) | 2,315 tk | 698 tk | **522 tk** | **77%** · 4× |
+
+**Insight**: CLI table is surprisingly compact for human display (fixed-width columns, no JSON key overhead). But it's not machine-parseable. For automation and AI agents, always use the Python API with explicit field selection.
+
+### Code pattern for agents
+
+```python
+# ❌ Expensive — 3,155 tokens for 25 workloads
+output = subprocess.run(["sysdig", "vulns", "list", "--format", "json"], ...)
+
+# ✅ Efficient — 211 tokens for the same question
+from sysdig_cli.auth import resolve_auth
+from sysdig_cli.client import SysdigClient
+
+with SysdigClient(auth=resolve_auth()) as client:
+    data = client.get("/secure/vulnerability/v1/runtime-results", params={"limit": 25})
+    critical = [
+        [r["mainAssetName"].split("/")[-1], r["criticalVulnCount"]]
+        for r in data.get("data", [])
+        if r.get("criticalVulnCount", 0) > 0
+    ]
+    # → ~85 tokens
+```
+
+> Run `python3 prompts/benchmark_api_vs_cli.py` to reproduce these numbers against your own Sysdig instance.
+
+---
+
 ## Installation
 
-```bash
-# From source
-git clone https://github.com/draios/ciso-hq
-cd sysdig-cli
-pip install -e ".[dev]"
+Not yet on PyPI — install from source:
 
-# Verify
-sysdig --version
+```bash
+git clone https://github.com/epp42/sysdig-cli
+cd sysdig-cli
+pip install -e .          # installs the `sysdig` command
+pip install -e ".[dev]"   # also installs test dependencies (pytest, respx, etc.)
+```
+
+```bash
+sysdig --version   # verify
 ```
 
 **Requirements:** Python 3.9+
@@ -290,7 +347,9 @@ SYSDIG_API_TOKEN  (env var, highest priority)
 
 ```bash
 export SYSDIG_API_TOKEN="your-token"
-export SYSDIG_API_URL="https://eu1.app.sysdig.com"   # optional host override
+export SYSDIG_REGION="eu1"          # shorthand: us2 | us4 | eu1 | au1 | prodmon
+# OR full URL (takes precedence over SYSDIG_REGION):
+export SYSDIG_API_URL="https://eu1.app.sysdig.com"
 ```
 
 ### Config file profiles
@@ -322,6 +381,7 @@ profiles:
 | `us4` | `https://us4.app.sysdig.com` |
 | `eu1` | `https://eu1.app.sysdig.com` |
 | `au1` | `https://app.au1.sysdig.com` |
+| `prodmon` | `https://prodmon.app.sysdig.com` |
 
 ```bash
 sysdig events list --region eu1   # per-command override

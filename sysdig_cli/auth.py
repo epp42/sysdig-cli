@@ -19,6 +19,7 @@ REGION_HOSTS: Dict[str, str] = {
     "us4": "https://us4.app.sysdig.com",
     "eu1": "https://eu1.app.sysdig.com",
     "au1": "https://app.au1.sysdig.com",
+    "prodmon": "https://prodmon.app.sysdig.com",
 }
 
 DEFAULT_HOST = "https://us2.app.sysdig.com"
@@ -102,6 +103,15 @@ def resolve_auth(
         or os.environ.get("SYSDIG_HOST", "").strip()
         or os.environ.get("SYSDIG_MCP_API_HOST", "").strip()
     )
+    # SYSDIG_REGION env var: shorthand for known regions (e.g. "eu1", "prodmon")
+    env_region = os.environ.get("SYSDIG_REGION", "").strip().lower()
+    if env_region and not env_host:
+        if env_region not in REGION_HOSTS:
+            raise AuthError(
+                f"Unknown SYSDIG_REGION {env_region!r}. "
+                f"Valid regions: {', '.join(REGION_HOSTS)}"
+            )
+        env_host = REGION_HOSTS[env_region]
     default_host = env_host if env_host else DEFAULT_HOST
 
     # 1. SYSDIG_API_TOKEN
